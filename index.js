@@ -1,14 +1,33 @@
-const puppeteer = require('puppeteer');
-const NVIDIA_STORE = 'https://www.nvidia.com/en-us/shop/geforce/?page=1&limit=9&locale=en-us';
+const {getDateTime, zeroAppend} = require('./helpers.js');
+//const constants = require('./constants/constants.js');
+//NVIDIA Site Constants
+const NVIDIA_GEFORCE_3080 = 'NVIDIA GEFORCE RTX 3080';
+const OOS = "OUT OF STOCK";
+
+//NVIDIA HTML CLASS TAGS
+const CLASS_NOICON = '.noicon';
 const CLASS_PRODUCT_DETAILS_STRING = '.product-details-list-tile';
 const CLASS_NVIDIA_OOS = 'featured-buy-link link-btn brand-green  cta-button stock-grey-out';
-const NVIDIA_INSTOCK = 'featured-buy-link link-btn brand-green cta-button js-add-button';
-const NVIDIA_GEFORCE_3080 = 'NVIDIA GEFORCE RTX 3080';
-const CLASS_NOICON = '.noicon';
-const OOS = "OUT OF STOCK";
-const NVIDIA_3080_URL = 'https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3080/'
-const URL_NVIDIA_3080_ONLY = 'https://www.nvidia.com/en-us/shop/geforce/?page=1&limit=9&locale=en-us&search=3080&gpu=RTX%203080&manufacturer=NVIDIA&manufacturer_filter=NVIDIA~1,ACER~0,ALIENWARE~0,ASUS~3,DELL~0,EVGA~3,GIGABYTE~2,HP~0,LENOVO~0,LG~0,MSI~3,PNY~0,RAZER~0,ZOTAC~2'
+const CLASS_NVIDIA_INSTOCK = 'featured-buy-link link-btn brand-green cta-button js-add-button';
 
+//NVIDIA URLS
+const NVIDIA_STORE = 'https://www.nvidia.com/en-us/shop/geforce/?page=1&limit=9&locale=en-us';
+const NVIDIA_3080_URL = 'https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3080/';
+const URL_NVIDIA_3080_ONLY = 'https://www.nvidia.com/en-us/shop/geforce/?page=1&limit=9&locale=en-us&search=3080&gpu=RTX%203080&manufacturer=NVIDIA&manufacturer_filter=NVIDIA~1,ACER~0,ALIENWARE~0,ASUS~3,DELL~0,EVGA~3,GIGABYTE~2,HP~0,LENOVO~0,LG~0,MSI~3,PNY~0,RAZER~0,ZOTAC~2';
+const URL_DIRECT_LINK = 'https://store.nvidia.com/store?Action=AddItemToRequisition&SiteID=nvidia&Locale=en_GB&productID=5438792800&quantity=1'
+
+//ERROR MESSAGES
+const ERROR_GPU = 'Error has occurred somewhere in the gpuSearch function.';
+const ERROR = "Error Occurred!";
+
+const puppeteer = require('puppeteer');
+const readline = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+const notifier = require('node-notifier');
+//Main function to check for the gpu
 async function gpuSearch(browser, callback){
     var inStock, page; 
     try{
@@ -32,13 +51,14 @@ async function gpuSearch(browser, callback){
         await page.goto(URL_NVIDIA_3080_ONLY,{
             timeout: 0
             });
-        
         //Grab the list of document elements that are graphics cards.
         
         var data = await page.evaluate(() => document.body.innerHTML);
         var doc = await page.$$(CLASS_PRODUCT_DETAILS_STRING);
         
         //Might need to iterate if they decide to change the html again.
+        //TODO: Add check if doc is undefined?
+        //if(doc == undefined)
         var innerText = await doc[0].getProperty('innerText');
         var jsonText = await innerText.jsonValue();
         var jsonUpper = jsonText.toUpperCase();
@@ -48,7 +68,9 @@ async function gpuSearch(browser, callback){
             console.log("[" + getDateTime() + "] RTX 3080 is not in stock");
         }
         else{
-            console.log("[" + getDateTime() + "] RTX 3080 is in stock");
+            //TODO: In this function print the html of the page somewhere to check for stock?
+            console.log("[" + getDateTime() + "] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~RTX 3080 IS IN STOCK~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            notification("Notify Bot", "RTX 3080 might be in stock!");
         }
         
         page.close();
@@ -59,14 +81,19 @@ async function gpuSearch(browser, callback){
         //Probably dont close browser every time?
     }
     catch(err){
-        console.log('Error has occurred somewhere in the gpuSearch function.');
+        console.log(ERROR_GPU);
         console.log(err);
         return err;
     }
     
 }
 
-//Recieved from https://tecadmin.net/
+/* function zeroAppend(digit){
+    if(digit < 10)
+        return "0" + digit.toString(10);
+    return digit.toString(10);
+}
+
 //Function that simply grabs the current date and time.
 function getDateTime(){
     var today = new Date();
@@ -74,22 +101,32 @@ function getDateTime(){
     var time = today.getHours() + ":" + zeroAppend(today.getMinutes()) + ":" + zeroAppend(today.getSeconds());
     return date + " " + time;
 }
+ */
+//Input reader that allows user to exit from program whenever necessary.
+async function stop(){
+    readline.question('Press enter to stop the program. \n', (answer) => {
+        console.log("Ending program.");
+        process.exit();
+    });
+}
 
-//Function to make digits zero prepended digits.
-function zeroAppend(digit){
-    if(digit < 10)
-        return "0" + digit.toString(10);
+function notification(title, notification){
+    notifier.notify({
+        title: title,
+        notification: notification,
+        timeout: 5
+    });
 }
 
 async function main(){
     var browser;
     try{
         browser = await puppeteer.launch();
+        await stop();
         await gpuSearch(browser, setTimeout);
-        //nvidiaTimer(browser, setTimer());
     }
     catch(err){
-        console.log("Error Occurred!");
+        console.log(ERROR);
         console.log(err);
     }   
     /*if(browser != null){
